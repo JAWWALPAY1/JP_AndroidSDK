@@ -1,14 +1,17 @@
 package com.example.androidsdk;
 
+import android.app.Dialog;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.Window;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -32,14 +35,16 @@ public class Pay extends AppCompatActivity {
     public int IframeID;
     public String URL = "";
     public String Endpoint = "";
-    String  Data="";
+    String Data = "";
+    WebView mywebview;
 
     final Intent result = new Intent();
+    Dialog Loader_dialog;
 
     public void StartPayment(String paymentKey, int iframeID) {
 
-       final LinearLayout linearLayout = findViewById(R.id.layout);
-       final WebView mywebview = (WebView) findViewById(R.id.webView);
+        final LinearLayout linearLayout = findViewById(R.id.layout);
+        mywebview = (WebView) findViewById(R.id.webView);
 
         mywebview.setWebViewClient(new WebViewClient() {
 
@@ -59,6 +64,7 @@ public class Pay extends AppCompatActivity {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
+                Loader_dialog.show();
 
             }
 
@@ -66,20 +72,22 @@ public class Pay extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                Loader_dialog.dismiss();
                 if (view.getOriginalUrl().contains(Endpoint)) {
 
                     URL = view.getOriginalUrl();
-                  //  Uri uri = Uri.parse(URL);
+                    //  Uri uri = Uri.parse(URL);
                     Data = getQueryParams(URL);
-                    result.putExtra("data",Data);
+                    result.putExtra("data", Data);
                     setResult(RESULT_OK, result);
                     linearLayout.removeAllViews();
                     mywebview.destroy();
 
                     finish();
 
+                } else {
+                    notifyErrorTransaction("Make sure to set the Correct endpoint to capture the transaction fields");
                 }
-else {notifyErrorTransaction("Make sure to set the Correct endpoint to capture the transaction fields");}
 
             }
 
@@ -103,10 +111,9 @@ else {notifyErrorTransaction("Make sure to set the Correct endpoint to capture t
         mywebview.loadUrl("https://checkout.jawwalpay.ps/api/acceptance/iframes/" + IframeID + "?payment_token=" + PaymentKey);
 
 
-
     }
 
-    public String getQueryParams(String url){
+    public String getQueryParams(String url) {
         try {
             JSONObject JSON = new JSONObject();
             String[] urlParts = url.split("\\?");
@@ -124,7 +131,7 @@ else {notifyErrorTransaction("Make sure to set the Correct endpoint to capture t
             }
             return JSON.toString();
         } catch (Exception ex) {
-            String message = String.valueOf(Log.d("parsing error", "getQueryParams: "+ex.getMessage()));
+            String message = String.valueOf(Log.d("parsing error", "getQueryParams: " + ex.getMessage()));
 
             return message;
 
@@ -133,6 +140,7 @@ else {notifyErrorTransaction("Make sure to set the Correct endpoint to capture t
 
 
     }
+
     public void notifyErrorTransaction(String reason) {
         result.putExtra("notifyError", reason);
         setResult(RESULT_OK, result);
@@ -150,17 +158,23 @@ else {notifyErrorTransaction("Make sure to set the Correct endpoint to capture t
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pay);
 
-
+        loadingDialog();
         Intent intent = getIntent();
         PaymentKey = intent.getStringExtra(IntentKeys.PAYMENT_KEY);
         IframeID = intent.getIntExtra(String.valueOf(IntentKeys.IFRAMEID), 1);
         Endpoint = intent.getStringExtra(IntentKeys.ENDPOINT_URL);
 
+
         StartPayment(PaymentKey, IframeID);
 
     }
+
     @Override
     public void onBackPressed() {
+        if (mywebview.canGoBack()) {
+            mywebview.goBack();
+        } else
+            super.onBackPressed();
     }
 
     @Override
@@ -178,7 +192,7 @@ else {notifyErrorTransaction("Make sure to set the Correct endpoint to capture t
             userCancelled = true;
 
             result.putExtra("userCancelled", userCancelled);
-            setResult(RESULT_OK,result);
+            setResult(RESULT_OK, result);
             finish();
         }
         return super.onOptionsItemSelected(item);
@@ -189,4 +203,15 @@ else {notifyErrorTransaction("Make sure to set the Correct endpoint to capture t
 
         super.onDestroy();
     }
+
+    public void loadingDialog() {
+        Loader_dialog = new Dialog(Pay.this);
+        Loader_dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        Loader_dialog.setContentView(R.layout.loader);
+        Loader_dialog.setCancelable(false);
+        Loader_dialog.getWindow().setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
+        Loader_dialog.dismiss();
+
+    }
+
 }
